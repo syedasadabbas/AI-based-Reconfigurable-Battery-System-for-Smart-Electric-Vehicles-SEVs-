@@ -324,30 +324,41 @@ export enum PackTerrainType {
   IN_CU_L3 = "Y",
 }
 
+// Required supply voltage per terrain, in volts.
+//
+// These were originally specified as 4/6/8/12/16 V, but 6 V cannot be produced
+// by a 4-cell pack of 4 V cells: the terminal voltage is always a whole number
+// of cells in series, and unequal parallel branches short circuit rather than
+// averaging (see shared/battery-model.ts, OUTPUT_VOLTAGES). The six terrains
+// that asked for 6 V are therefore served at 8 V - the nearest achievable
+// voltage that does not under-supply them. Under-supplying by dropping to 4 V
+// would leave those terrains without enough voltage to be driven.
+// TODO(supervisor): confirm 8 V is the intended substitution for the former
+// 6 V terrains, or re-specify those terrains at 4 V.
 export const packTerrainMetadata: Record<PackTerrainType, { description: string; voltage: number }> = {
   [PackTerrainType.STRAIGHT_ROAD]: { description: "Straight Road", voltage: 4 },
-  [PackTerrainType.INCLINED_L1]: { description: "Inclined Level 1", voltage: 6 },
+  [PackTerrainType.INCLINED_L1]: { description: "Inclined Level 1", voltage: 8 }, // was 6 V (unachievable)
   [PackTerrainType.INCLINED_L2]: { description: "Inclined Level 2", voltage: 8 },
   [PackTerrainType.INCLINED_L3]: { description: "Inclined Level 3", voltage: 16 },
   [PackTerrainType.CURVY_L1]: { description: "Curvy Level 1", voltage: 4 },
-  [PackTerrainType.CURVY_L2]: { description: "Curvy Level 2", voltage: 6 },
+  [PackTerrainType.CURVY_L2]: { description: "Curvy Level 2", voltage: 8 }, // was 6 V (unachievable)
   [PackTerrainType.CURVY_L3]: { description: "Curvy Level 3", voltage: 12 },
   [PackTerrainType.DECLINED_L1]: { description: "Declined Level 1", voltage: 4 },
-  [PackTerrainType.DECLINED_L2]: { description: "Declined Level 2", voltage: 6 },
+  [PackTerrainType.DECLINED_L2]: { description: "Declined Level 2", voltage: 8 }, // was 6 V (unachievable)
   [PackTerrainType.DECLINED_L3]: { description: "Declined Level 3", voltage: 8 },
-  [PackTerrainType.BUMPY_L1]: { description: "Bumpy Level 1", voltage: 6 },
+  [PackTerrainType.BUMPY_L1]: { description: "Bumpy Level 1", voltage: 8 }, // was 6 V (unachievable)
   [PackTerrainType.BUMPY_L2]: { description: "Bumpy Level 2", voltage: 8 },
   [PackTerrainType.BUMPY_L3]: { description: "Bumpy Level 3", voltage: 16 },
   [PackTerrainType.IN_CU_BU_L1]: { description: "In-Cu-Bu- Level1", voltage: 8 },
   [PackTerrainType.IN_CU_BU_L2]: { description: "In-Cu-Bu- Level2", voltage: 12 },
   [PackTerrainType.IN_CU_BU_L3]: { description: "In-Cu-Bu- Level3", voltage: 16 },
   [PackTerrainType.DE_CU_L1]: { description: "De-Cu Level 1", voltage: 4 },
-  [PackTerrainType.DE_CU_L2]: { description: "De-Cu Level 2", voltage: 6 },
+  [PackTerrainType.DE_CU_L2]: { description: "De-Cu Level 2", voltage: 8 }, // was 6 V (unachievable)
   [PackTerrainType.DE_CU_L3]: { description: "De-Cu Level 3", voltage: 8 },
   [PackTerrainType.DE_CU_BUMPY_L1]: { description: "De-Cu-Bumpy Level 1", voltage: 8 },
   [PackTerrainType.DE_CU_BUMPY_L2]: { description: "De-Cu-Bumpy Level 2", voltage: 12 },
   [PackTerrainType.DE_CU_BUMPY_L3]: { description: "De-Cu-Bumpy Level 3", voltage: 16 },
-  [PackTerrainType.IN_CU_L1]: { description: "In-Cu Level 1", voltage: 6 },
+  [PackTerrainType.IN_CU_L1]: { description: "In-Cu Level 1", voltage: 8 }, // was 6 V (unachievable)
   [PackTerrainType.IN_CU_L2]: { description: "In-Cu Level 2", voltage: 8 },
   [PackTerrainType.IN_CU_L3]: { description: "In-Cu Level 3", voltage: 12 },
 };

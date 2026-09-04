@@ -1,5 +1,139 @@
 # Change Log
 
+## 2026-09-04 - feat/config-dataset-export - Re-verify dataset; make it the app's single source of truth
+Change:
+  - Added shared/battery-model.ts as THE circuit model (moved from
+    tools/generate-config-dataset.ts, which is now tools/config-dataset-csv.ts
+    for CSV serialisation only).
+  - Added tests/config-dataset-independent-check.e2e.ts (numeric MNA solver),
+    tests/config-hand-derivation.e2e.ts (closed-form derivation) and
+    tests/app-data-integrity.e2e.ts (the app serves the verified data).
+  - Replaced client/src/lib/circuit-solver.ts and server/circuit-solver.ts with
+    thin delegates; removed the duplicate model from server/storage.ts, the
+    second source of truth in server/routes.ts POST /api/calculate, the
+    duplicate helpers in client/src/lib/local-store.ts, and the dead
+    client/src/lib/circuit-calculator.ts.
+  - Fixed unreachable-voltage assumptions in client/src/pages/dashboard.tsx,
+    pack-analysis.tsx, research-summary.tsx,
+    client/src/components/voltage-bar-chart.tsx, configuration-table.tsx and
+    shared/schema.ts (packTerrainMetadata).
+  - Added an explicit unsupported-voltage warning in car-simulation.tsx.
+Justification:
+  - The user asked for re-verification and for the whole web app to use the
+    correct valid-configuration data.
+  - RE-VERIFICATION found two genuine defects in the previous dataset:
+      1. One configuration with a negative terminal voltage had been silently
+         clamped to "0 V, no active cells". Configuration #3174
+         (R1B,R1C,R2C,R3A,R4B,R4C) routes ES- to cell 2's positive pole through
+         the common bus while R3A reaches its negative pole, so current really
+         flows but the wrong way through the load. It now carries its own
+         `invalid` status. Exactly one such configuration exists, and the
+         565-row valid set is unchanged by this.
+      2. My first cross-check reported 126 disagreements, all of which were
+         defects in the CHECKER, not the dataset: R_CLOSED=1e-6 with R_OPEN=1e12
+         spans 1e18 in conductance, which exceeds double precision and made the
+         MNA matrix ill-conditioned (it returned 4.57 V for a configuration with
+         R4C open, which is physically impossible). Rescaling to 1e-4 .. 1e8 and
+         adding an absolute current floor for active-cell detection resolved all
+         but the one real finding above.
+  - APP AUDIT found five separate, mutually inconsistent circuit
+    implementations. Critically, the app is now fully client-side
+    (client/src/lib/queryClient.ts serves every /api/* call from
+    client/src/lib/local-store.ts), so server/ was dead at runtime and fixing
+    only the server would have changed nothing the user sees. Specific faults:
+      - client/src/lib/local-store.ts and server/storage.ts each labelled 6 V,
+        10 V and 14 V voltage groups that this pack cannot produce, and their
+        connection-type classifier had NO parallel branch, so all 91 parallel
+        and 13 series-parallel configurations were mislabelled.
+      - client/src/lib/circuit-calculator.ts (dead code) applied an invented
+        `complexityFactor` of 0.8, producing voltages that are not multiples of
+        the 4 V cell voltage. Deleted.
+      - dashboard.tsx rendered 6 V, 10 V and 14 V cards that always showed 0.
+      - pack-analysis.tsx required 6 V configurations and refused to run without
+        them, which the application's own CSV export can never supply.
+      - shared/schema.ts assigned 6 V to six terrain types, so those routes
+        threw "No configurations found for voltage 6V".
+      - research-summary.tsx carried a hand-copied snapshot of the superseded
+        solver (1573 operational configurations).
+  - Why 6 V / 10 V / 14 V are impossible: the terminal voltage is always a whole
+    number of 4 V cells in series, and parallel branches of unequal EMF short
+    circuit rather than averaging to an intermediate voltage. Producing a 6 V
+    class needs a resistive cell model, which the Kirchhoff equations supplied
+    with this project do not include.
+Verification:
+  - `npm run dataset:all` passes: 22 invariant/hand-case assertions,
+    0 disagreements between the topological solver and the independent numeric
+    MNA solve across all 4096 configurations (voltage, short-circuit status and
+    active-cell set), 26 closed-form hand-derivation assertions, and 23
+    application-integrity assertions confirming the running app serves exactly
+    this dataset.
+  - Hand derivation reproduces the totals independently: f(1)=5 and f(2)=14 were
+    derived by hand and match; Family I = 5x4 + 14x3 + 63x2 + 278x1 = 466;
+    466 + 99 = 565.
+  - `npm run test:e2e` (research-summary) passes with the corrected figures.
+  - `npx tsc --noEmit` introduces no new errors; the only 2 remaining are
+    pre-existing in client/src/lib/road-profile-parser.ts and are untouched by
+    this work.
+  - Census: 4096 = 2380 short circuit + 1150 zero output + 1 reverse polarity
+    + 565 usable (4 V x437, 8 V x101, 12 V x22, 16 V x5;
+    461 series, 91 parallel, 13 series-parallel).
+
+Follow-up in the same session (terminology + paper alignment):
+  - At the user's request, the status for a negative terminal voltage is now
+    reported simply as "invalid"; the earlier polarity-specific wording no
+    longer appears in the app, the dataset files, the docs or the tests.
+    Configuration #3174 now
+    reports status `invalid`, voltage 0, group "Invalid Configuration", and is
+    excluded from data/battery-configurations-valid.csv (which holds only the
+    565 usable configurations).
+  - Added tests/paper-pack-alignment.e2e.ts (`npm run dataset:papercheck`)
+    verifying the model against the pack proposed in Muhammad Shaheer's paper,
+    "AI-based Reconfigurable Battery System for Smart Electric Vehicles (SEVs)"
+    (D:\Downloadsattery v10-1_260904_223046.pdf).
+Paper alignment findings:
+  - The paper's Section 2 / Fig. 1 architecture is EXACTLY what this model
+    implements: 4 cells, 3 switches per cell, type-a to the energy-source
+    positive pole, type-b to the common negative bus, type-c to the next cell's
+    positive pole with the last cell wired to the energy-source negative pole,
+    load R_T across the terminals (Eqs. 3-4), and R in {0, infinity}.
+  - The paper's own exclusion rule matches this model's short-circuit
+    criterion verbatim: "short circuit may occur for some configurations. The
+    optimization target will automatically exclude short circuit configurations
+    from our solution because some of Iia or Iib will become infinite."
+  - The model reproduces the paper's worked switch lists for series (Eqs. 13,
+    17), parallel (Eqs. 18, 19, 21) and the full series string.
+  - The xlsx in attached_assets IS the paper's dataset: its 1605 rows reproduce
+    the paper's published percentages exactly (975/1605 = 60.7% at 8 V,
+    386 = 24.0%, 140 = 8.7%, 64 = 4.0%, 40 = 2.5%). Its encoding is 0 = closed,
+    consistent with R in {0, infinity}.
+  - Two of the paper's Section 3.2 lists do not follow from its own
+    architecture, and the user has confirmed the v6 reading is not valid:
+      * v6 (Eq. 22 family, 64 rows): puts an 8 V string in parallel with a 4 V
+        branch, which drives an unbounded loop current and is excluded by the
+        paper's own rule. Averaging to 6 V would need cell internal resistance,
+        absent from Eqs. 1-12. Usable classes are 4, 8, 12 and 16 V only.
+      * Non-consecutive series (Eqs. 14-16): no switch joins one cell's
+        negative pole to a non-adjacent cell's positive pole (type-c reaches
+        only cell n+1), so those lists form a parallel bus, not a series string.
+  - v6 is no longer referenced as a valid class anywhere in the app.
+Verification of the follow-up:
+  - `npm run dataset:all` passes: 86 assertions across five suites
+    (invariants, independent numeric MNA cross-check, closed-form hand
+    derivation, paper-architecture alignment, application integrity), with
+    0 disagreements between the topological and numeric solvers on all 4096
+    configurations.
+  - `npm run test:e2e` passes.
+  - `npx tsc --noEmit`: only the 2 pre-existing road-profile-parser errors.
+  - Both CSVs regenerated successfully (the earlier EBUSY file lock cleared):
+    data/battery-configurations-all.csv 4096 rows,
+    data/battery-configurations-valid.csv 565 rows.
+
+Outstanding:
+  - TODO(supervisor) in shared/schema.ts: the six terrains that specified 6 V
+    are now served at 8 V, the nearest achievable voltage that does not
+    under-supply them. Confirm this substitution or re-specify those terrains
+    at 4 V.
+
 ## 2026-09-04 - feat/config-dataset-export - Authoritative configuration dataset (CSV)
 Change: Added tools/generate-config-dataset.ts, tools/write-config-dataset.ts,
   tests/config-dataset.e2e.ts, data/README.md, the generated CSV files

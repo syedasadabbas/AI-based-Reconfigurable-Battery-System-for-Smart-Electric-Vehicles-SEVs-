@@ -3173,7 +3173,7 @@ ConfigID,R1A,R1B,R1C,R2A,R2B,R2C,R3A,R3B,R3C,R4A,R4B,R4C,SwitchStates,Status,Vol
 #3171,1,1,0,0,0,1,1,0,0,0,1,1,110 001 100 011,valid,4,4 V,series,1,"1"
 #3172,0,0,1,0,0,1,1,0,0,0,1,1,001 001 100 011,valid,0,0 V (no output),none,0,""
 #3173,1,0,1,0,0,1,1,0,0,0,1,1,101 001 100 011,short-circuit,0,Short Circuit,none,0,""
-#3174,0,1,1,0,0,1,1,0,0,0,1,1,011 001 100 011,valid,0,0 V (no output),none,0,""
+#3174,0,1,1,0,0,1,1,0,0,0,1,1,011 001 100 011,invalid,0,Invalid Configuration,none,0,""
 #3175,1,1,1,0,0,1,1,0,0,0,1,1,111 001 100 011,short-circuit,0,Short Circuit,none,0,""
 #3176,0,0,0,1,0,1,1,0,0,0,1,1,000 101 100 011,short-circuit,0,Short Circuit,none,0,""
 #3177,1,0,0,1,0,1,1,0,0,0,1,1,100 101 100 011,short-circuit,0,Short Circuit,none,0,""

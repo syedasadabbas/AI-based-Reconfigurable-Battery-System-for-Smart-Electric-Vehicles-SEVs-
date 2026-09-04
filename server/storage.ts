@@ -1,6 +1,6 @@
 import { type Configuration, type InsertConfiguration, type Session, type InsertSession, type Statistics, type RoadProfile, type CellStateDB, type InsertCellState, type AICellState } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { circuitSolver } from "./circuit-solver";
+import { generateAllAppConfigurations } from "../shared/battery-model";
 import { parseRoadProfile } from "./road-profile-parser";
 import { PREDEFINED_ROAD_PROFILES } from "./road-profiles-data";
 
@@ -70,72 +70,25 @@ export class MemStorage implements IStorage {
     }
   }
 
+  /**
+   * All 4096 configurations, analysed by shared/battery-model.ts.
+   *
+   * The private calculateVoltage / getVoltageGroup / getConnectionType /
+   * getActiveCells / formatSwitchStates helpers that used to sit here were a
+   * third independent implementation of the circuit model. They labelled
+   * unreachable 6 V, 10 V and 14 V groups, had no Parallel connection type,
+   * and could not represent a short circuit. They are gone: derive everything
+   * from the shared model.
+   */
   private generateAllConfigurations(): InsertConfiguration[] {
-    const configs: InsertConfiguration[] = [];
-    
-    // Generate all 2^12 = 4096 combinations
-    for (let i = 0; i < 4096; i++) {
-      const switches = [];
-      for (let bit = 0; bit < 12; bit++) {
-        switches.push((i & (1 << bit)) !== 0);
-      }
-      
-      const switchStates = this.formatSwitchStates(switches);
-      const voltage = this.calculateVoltage(switches);
-      const voltageGroup = this.getVoltageGroup(voltage);
-      const connectionType = this.getConnectionType(switches, voltage);
-      const activeCells = this.getActiveCells(switches);
-      
-      configs.push({
-        configId: `#${i.toString().padStart(4, '0')}`,
-        switchStates,
-        voltage,
-        voltageGroup,
-        connectionType,
-        activeCells,
-      });
-    }
-    
-    return configs;
-  }
-
-  private formatSwitchStates(switches: boolean[]): string {
-    const groups = [];
-    for (let i = 0; i < 4; i++) {
-      const cellSwitches = switches.slice(i * 3, (i + 1) * 3);
-      groups.push(cellSwitches.map(s => s ? '1' : '0').join(''));
-    }
-    return groups.join(' ');
-  }
-
-  private calculateVoltage(switches: boolean[]): number {
-    // Use proper circuit solver with graph-based analysis
-    return circuitSolver.calculateVoltage(switches);
-  }
-
-  private getVoltageGroup(voltage: number): string {
-    if (voltage === 0) return "Zero Output";
-    if (voltage === 4) return "Single Cell";
-    if (voltage === 6) return "Mixed Configuration";
-    if (voltage === 8) return "Two Series";
-    if (voltage === 10) return "Three Mixed";
-    if (voltage === 12) return "Three Series";
-    if (voltage === 14) return "Four Mixed";
-    if (voltage === 16) return "Full Series";
-    return `${voltage}V Configuration`;
-  }
-
-  private getConnectionType(switches: boolean[], voltage: number): string {
-    const activeCells = this.getActiveCells(switches);
-    if (activeCells === 0) return "Disconnected";
-    if (activeCells === 1) return "Single Cell";
-    if (voltage === activeCells * 4) return "Series";
-    return "Mixed";
-  }
-
-  private getActiveCells(switches: boolean[]): number {
-    // Use circuit solver's reachability-based active cell count
-    return circuitSolver.getActiveCellCount(switches);
+    return generateAllAppConfigurations().map((c) => ({
+      configId: c.configId,
+      switchStates: c.switchStates,
+      voltage: c.voltage,
+      voltageGroup: c.voltageGroup,
+      connectionType: c.connectionType,
+      activeCells: c.activeCells,
+    }));
   }
 
   async getAllConfigurations(): Promise<Configuration[]> {

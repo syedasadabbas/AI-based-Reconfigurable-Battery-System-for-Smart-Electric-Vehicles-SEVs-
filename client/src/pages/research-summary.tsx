@@ -117,14 +117,25 @@ export const DOMINANT_RESISTORS = [
   { cls: "16 V", resistor: "RA1", count: 37, topology: "Parallel" },
 ];
 
-// Enumeration produced by this repository's server/circuit-solver.ts over all 2^12 settings.
+// Enumeration over all 2^12 switch settings, produced by shared/battery-model.ts
+// and verified three independent ways by `npm run dataset:all`: hand-worked
+// circuit cases, an independent numeric Modified Nodal Analysis solve, and a
+// closed-form hand derivation. This replaces an earlier hand-copied snapshot of
+// a superseded solver, which reported 1,573 operational configurations by
+// counting cells that carry no load current and by treating short circuits as
+// working configurations.
 export const APP_ENUMERATION = [
-  { v: "0 V", n: 2523, d: "No complete path or short circuit — excluded from use" },
-  { v: "4 V", n: 454, d: "One cell across the terminals" },
-  { v: "8 V", n: 470, d: "Two cells in series" },
-  { v: "12 V", n: 420, d: "Three cells in series" },
-  { v: "16 V", n: 229, d: "Four cells in series" },
+  { v: "Short circuit", n: 2380, d: "Inconsistent node potentials — infinite loop current, excluded" },
+  { v: "0 V", n: 1150, d: "No complete path from the load back through the cells" },
+  { v: "Invalid", n: 1, d: "Current flows the wrong way through the load — excluded" },
+  { v: "4 V", n: 437, d: "One cell deep: 346 series, 91 parallel" },
+  { v: "8 V", n: 101, d: "Two cells in series: 89 series, 12 series-parallel" },
+  { v: "12 V", n: 22, d: "Three cells in series: 21 series, 1 series-parallel" },
+  { v: "16 V", n: 5, d: "All four cells in series" },
 ];
+
+/** Usable (power-delivering) configurations: 437 + 101 + 22 + 5. */
+export const OPERATIONAL_CONFIGURATIONS = 565;
 
 export const REFERENCES: string[] = [
   "Chan, C.C., Wong, Y.S. (2004). The state of the art of electric vehicle technology. IPEMC 2004, 1, 46–57.",
@@ -1076,7 +1087,7 @@ export default function ResearchSummary() {
                           <td className="border border-border p-3">Total</td>
                           <td className="border border-border p-3 text-right text-primary">4,096</td>
                           <td className="border border-border p-3">
-                            1,573 operational configurations once 0 V states are removed
+                            565 operational configurations once faults and 0 V states are removed
                           </td>
                         </tr>
                       </tfoot>
@@ -1093,14 +1104,20 @@ export default function ResearchSummary() {
                     <li>
                       <strong>Class distribution.</strong> The paper reports 8 V at 60.7%, 4 V at 24%,
                       12 V at 8.7%, 6 V at 4.0% and 16 V at 2.5% of the valid-configuration dataset.
-                      This application&rsquo;s solver yields 4 V 28.9%, 8 V 29.9%, 12 V 26.7% and 16 V
-                      14.6% of its 1,573 operational configurations. The two enumerations apply
-                      different validity rules and are not interchangeable.
+                      This application&rsquo;s verified model yields 4 V 77.3%, 8 V 17.9%, 12 V 3.9%
+                      and 16 V 0.9% of its 565 operational configurations. The two enumerations apply
+                      different validity rules and are not interchangeable: the model used here
+                      excludes short circuits and counts only the cells that actually carry load
+                      current, so the higher-voltage classes are far rarer than the paper reports.
                     </li>
                     <li>
-                      <strong>The 6 V class.</strong> The paper includes a v6 class, produced only by
-                      combined series-parallel topologies. The solver in this application returns
-                      voltages in multiples of the 4 V cell voltage only, so it never emits 6 V.
+                      <strong>The 6 V class.</strong> The paper lists a v6 class, but 6 V is not a
+                      valid configuration of this pack. The paper itself stipulates R &isin; &#123;0, &infin;&#125;,
+                      and under that stipulation the terminal voltage is always a whole number of
+                      4 V cells in series; parallel branches of unequal EMF drive an infinite loop
+                      current, which the paper&rsquo;s own rule excludes as a short circuit rather
+                      than averaging to an intermediate voltage. The v6 configurations are
+                      therefore treated as invalid here and are absent from the valid set.
                     </li>
                   </ul>
                 </div>

@@ -5,77 +5,47 @@
 
 import type { Configuration, Statistics, RoadProfile, Session, CellStateDB, AICellState } from "@shared/schema";
 import { SceneType } from "@shared/schema";
-import { circuitSolver } from "./circuit-solver";
+import {
+  calculateConfiguration,
+  generateAllAppConfigurations,
+} from "@shared/battery-model";
 import { parseRoadProfile, PREDEFINED_ROAD_PROFILES } from "./road-profile-parser";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatSwitchStates(switches: boolean[]): string {
-  const groups: string[] = [];
-  for (let i = 0; i < 4; i++) {
-    const cell = switches.slice(i * 3, (i + 1) * 3);
-    groups.push(cell.map(s => (s ? "1" : "0")).join(""));
-  }
-  return groups.join(" ");
-}
-
-function getVoltageGroup(voltage: number): string {
-  if (voltage === 0) return "Zero Output";
-  if (voltage === 4) return "Single Cell";
-  if (voltage === 6) return "Mixed Configuration";
-  if (voltage === 8) return "Two Series";
-  if (voltage === 10) return "Three Mixed";
-  if (voltage === 12) return "Three Series";
-  if (voltage === 14) return "Four Mixed";
-  if (voltage === 16) return "Full Series";
-  return `${voltage}V Configuration`;
-}
-
-function getConnectionType(activeCells: number, voltage: number): string {
-  if (activeCells === 0) return "Disconnected";
-  if (activeCells === 1) return "Single Cell";
-  if (voltage === activeCells * 4) return "Series";
-  return "Mixed";
-}
-
-// ─── Configurations (generated once, cached in memory) ───────────────────────
+// ─── Configurations ──────────────────────────────────────────────────────────
+//
+// All circuit analysis comes from shared/battery-model.ts, which is the single
+// verified source of truth (see `npm run dataset:all`). The voltage-group and
+// connection-type helpers that used to live here have been removed: they
+// claimed 6 V, 10 V and 14 V groups that this pack cannot produce, and their
+// connection-type classifier had no Parallel branch at all.
 
 let _configurations: Configuration[] | null = null;
 
 export function getAllConfigurations(): Configuration[] {
   if (_configurations) return _configurations;
 
-  const configs: Configuration[] = [];
-  for (let i = 0; i < 4096; i++) {
-    const switches: boolean[] = [];
-    for (let bit = 0; bit < 12; bit++) {
-      switches.push((i & (1 << bit)) !== 0);
-    }
+  _configurations = generateAllAppConfigurations().map((c, index) => ({
+    id: `cfg-${index}`,
+    configId: c.configId,
+    switchStates: c.switchStates,
+    voltage: c.voltage,
+    voltageGroup: c.voltageGroup,
+    connectionType: c.connectionType,
+    activeCells: c.activeCells,
+    createdAt: new Date(0),
+  }));
 
-    const switchStates = formatSwitchStates(switches);
-    const voltage = circuitSolver.calculateVoltage(switches);
-    const activeCells = circuitSolver.getActiveCellCount(switches);
-    const connectionType = getConnectionType(activeCells, voltage);
-    const voltageGroup = getVoltageGroup(voltage);
-
-    configs.push({
-      id: `cfg-${i}`,
-      configId: `#${i.toString().padStart(4, "0")}`,
-      switchStates,
-      voltage,
-      voltageGroup,
-      connectionType,
-      activeCells,
-      createdAt: new Date(0),
-    });
-  }
-
-  _configurations = configs;
-  return configs;
+  return _configurations;
 }
 
 export function getConfigurationsByVoltage(voltage: number): Configuration[] {
   return getAllConfigurations().filter(c => c.voltage === voltage);
+}
+
+/** Only the configurations that actually deliver power, for callers that must
+ *  pick a working configuration (route planning, AI selection). */
+export function getUsableConfigurations(): Configuration[] {
+  return getAllConfigurations().filter(c => c.voltage > 0);
 }
 
 // ─── Statistics ───────────────────────────────────────────────────────────────
@@ -100,27 +70,10 @@ export function getStatistics(): Statistics {
   return { totalConfigurations: configs.length, voltageGroups, distribution };
 }
 
-// ─── Calculate (circuit solver, same as before) ───────────────────────────────
+// ─── Calculate ────────────────────────────────────────────────────────────────
 
 export function calculateConfig(switches: boolean[]) {
-  const voltage = circuitSolver.calculateVoltage(switches);
-  const activeCellsSet = circuitSolver.getActiveCellsSet(switches);
-  const activeCells = activeCellsSet.size;
-  const connectionType = getConnectionType(activeCells, voltage);
-  const voltageGroup = getVoltageGroup(voltage);
-  const switchStates = formatSwitchStates(switches);
-  const configIndex = switches.reduce((acc, s, i) => acc + (s ? 1 << i : 0), 0);
-  const configId = `#${configIndex.toString().padStart(4, "0")}`;
-
-  return {
-    voltage,
-    voltageGroup,
-    connectionType,
-    activeCells,
-    activeCellsArray: Array.from(activeCellsSet),
-    configId,
-    switchStates,
-  };
+  return calculateConfiguration(switches);
 }
 
 // ─── Road Profiles ────────────────────────────────────────────────────────────

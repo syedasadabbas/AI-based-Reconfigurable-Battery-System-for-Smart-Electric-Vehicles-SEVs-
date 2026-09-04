@@ -31,15 +31,13 @@ export default function ConfigurationTable({ configurations, loading }: Configur
   const totalPages = Math.ceil(filteredConfigs.length / itemsPerPage);
   const uniqueVoltages = Array.from(new Set(configurations.map(c => c.voltage))).sort((a, b) => a - b);
 
+  // Only the five achievable voltage groups; 6 V, 10 V and 14 V cannot occur.
   const getVoltageColor = (voltage: number): string => {
     switch (voltage) {
       case 0: return "bg-gray-100 text-gray-800";
       case 4: return "bg-blue-100 text-blue-800";
-      case 6: return "bg-cyan-100 text-cyan-800";
       case 8: return "bg-teal-100 text-teal-800";
-      case 10: return "bg-emerald-100 text-emerald-800";
       case 12: return "bg-green-100 text-green-800";
-      case 14: return "bg-lime-100 text-lime-800";
       case 16: return "bg-amber-100 text-amber-800";
       default: return "bg-purple-100 text-purple-800";
     }

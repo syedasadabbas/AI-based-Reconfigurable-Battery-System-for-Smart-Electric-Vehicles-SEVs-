@@ -14,6 +14,7 @@ import Navbar from '@/components/navbar';
 import Footer from '@/components/footer';
 import { PackConfiguration, PackTerrainType, packTerrainMetadata, CellState, PackAnalysisResult } from '@shared/schema';
 import { circuitSolver } from '@/lib/circuit-solver';
+import { OUTPUT_VOLTAGES } from '@shared/battery-model';
 
 // Constants
 const TOTAL_RANGE = 400;
@@ -38,15 +39,21 @@ interface AdvancedMetrics {
 }
 
 export default function PackAnalysis() {
-  const [configurations, setConfigurations] = useState<Record<number, PackConfiguration[]>>({
-    4: [], 6: [], 8: [], 12: [], 16: []
-  });
+  // Keyed by the voltages this pack can actually produce. The previous list
+  // included 6 V and omitted 12 V's unreachable neighbours; 6 V configurations
+  // can never be supplied, so requiring them made this page unusable with the
+  // application's own CSV export. See shared/battery-model.ts OUTPUT_VOLTAGES.
+  const [configurations, setConfigurations] = useState<Record<number, PackConfiguration[]>>(
+    Object.fromEntries(OUTPUT_VOLTAGES.map((v) => [v, [] as PackConfiguration[]])),
+  );
   const [roadProfile, setRoadProfile] = useState('');
   const [analysisResult, setAnalysisResult] = useState<PackAnalysisResult | null>(null);
   const [advancedMetrics, setAdvancedMetrics] = useState<AdvancedMetrics | null>(null);
   const [error, setError] = useState('');
   const [fileName, setFileName] = useState('');
-  const [configStats, setConfigStats] = useState({ 4: 0, 6: 0, 8: 0, 12: 0, 16: 0 });
+  const [configStats, setConfigStats] = useState<Record<number, number>>(
+    Object.fromEntries(OUTPUT_VOLTAGES.map((v) => [v, 0])),
+  );
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,7 +66,7 @@ export default function PackAnalysis() {
     const jsonData = utils.sheet_to_json(worksheet) as any[];
 
     const newConfigs: Record<number, PackConfiguration[]> = { 4: [], 6: [], 8: [], 12: [], 16: [] };
-    const stats = { 4: 0, 6: 0, 8: 0, 12: 0, 16: 0 };
+    const stats: Record<number, number> = Object.fromEntries(OUTPUT_VOLTAGES.map((v) => [v, 0]));
 
     // Detect format: dashboard export format or original format
     const isDashboardFormat = jsonData[0] && 'Voltage' in jsonData[0];
@@ -77,7 +84,7 @@ export default function PackAnalysis() {
         const voltage = parseInt(row['Voltage']) as number;
         const combination = row['Combination Type'] as string;
 
-        if ([4, 6, 8, 12, 16].includes(voltage)) {
+        if ((OUTPUT_VOLTAGES as readonly number[]).includes(voltage)) {
           const switchValues: Record<string, number> = {};
           const closedSwitches: string[] = [];
 
@@ -90,7 +97,7 @@ export default function PackAnalysis() {
             }
           });
 
-          newConfigs[voltage as 4 | 6 | 8 | 12 | 16].push({
+          newConfigs[voltage].push({
             id: row['Config ID'] || `C${voltage}-${String(index + 1).padStart(3, '0')}`,
             voltage,
             combination: combination || 'Unknown',
@@ -98,7 +105,7 @@ export default function PackAnalysis() {
             switchValues,
           });
 
-          stats[voltage as 4 | 6 | 8 | 12 | 16]++;
+          stats[voltage]++;
         }
       });
     } else {
@@ -107,7 +114,7 @@ export default function PackAnalysis() {
         const voltage = row['VOLTS'] as number;
         const combination = row['COMB'] as string;
 
-        if ([4, 6, 8, 12, 16].includes(voltage)) {
+        if ((OUTPUT_VOLTAGES as readonly number[]).includes(voltage)) {
           const switchValues: Record<string, number> = {};
           ALL_SWITCHES.forEach(sw => {
             switchValues[sw] = row[sw];
@@ -115,7 +122,7 @@ export default function PackAnalysis() {
 
           const closedSwitches = ALL_SWITCHES.filter(sw => row[sw] === 0);
 
-          newConfigs[voltage as 4 | 6 | 8 | 12 | 16].push({
+          newConfigs[voltage].push({
             id: `C${voltage}-${String(index + 1).padStart(3, '0')}`,
             voltage,
             combination,
@@ -123,7 +130,7 @@ export default function PackAnalysis() {
             switchValues,
           });
 
-          stats[voltage as 4 | 6 | 8 | 12 | 16]++;
+          stats[voltage]++;
         }
       });
     }
@@ -294,7 +301,7 @@ export default function PackAnalysis() {
       setError(
         `Missing configurations for required voltages: ${missingVoltages.map(v => `${v}V`).join(', ')}. ` +
         `Available voltages in uploaded file: ${availableVoltages || 'None'}. ` +
-        `Please upload an Excel file that includes all voltage configurations (4V, 6V, 8V, 12V, 16V).`
+        `Please upload a file that includes configurations for ${OUTPUT_VOLTAGES.map(v => `${v}V`).join(', ')}.`
       );
       return;
     }

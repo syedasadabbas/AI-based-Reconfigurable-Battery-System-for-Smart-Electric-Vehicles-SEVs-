@@ -8,7 +8,7 @@
  */
 import { writeFileSync, mkdirSync } from "fs";
 import { dirname, resolve } from "path";
-import { generateAll, toCsv } from "./generate-config-dataset";
+import { generateAll, toCsv } from "./config-dataset-csv";
 
 const rows = generateAll();
 const valid = rows.filter((r) => r.status === "valid" && r.voltage > 0);
@@ -35,6 +35,7 @@ for (const r of valid) {
 
 console.log(`\ntotal configurations      : ${rows.length}`);
 console.log(`short circuit (excluded)  : ${rows.filter((r) => r.status === "short-circuit").length}`);
+console.log(`invalid (excluded)        : ${rows.filter((r) => r.status === "invalid").length}`);
 console.log(`zero output               : ${rows.filter((r) => r.status === "valid" && r.voltage === 0).length}`);
 console.log(`voltage producing         : ${valid.length}`);
 console.log("\nby voltage (V):");

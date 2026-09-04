@@ -18,8 +18,10 @@ import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 import type { Configuration, RoadProfile, CarSimulationState } from "@shared/schema";
 import { ThreeJSScene } from "@/components/ThreeJSScene";
+import { useToast } from "@/hooks/use-toast";
 
 export default function CarSimulation() {
+  const { toast } = useToast();
   const [selectedProfileId, setSelectedProfileId] = useState<string>("city-commute");
   const [roadProfile, setRoadProfile] = useState<RoadProfile | null>(null);
   const [simulationState, setSimulationState] = useState<CarSimulationState>({
@@ -58,15 +60,39 @@ export default function CarSimulation() {
   const assignConfigurationsToSegments = (profile: RoadProfile): Map<number, Configuration> => {
     const configMap = new Map<number, Configuration>();
     
+    // Segments requiring 0 V need no configuration. For any other required
+    // voltage a configuration must exist - every terrain voltage is drawn from
+    // the producible set (see shared/battery-model.ts OUTPUT_VOLTAGES and
+    // tests/app-data-integrity.e2e.ts). If one is ever missing that is a real
+    // data fault, so surface it instead of silently leaving the segment
+    // unconfigured, which previously left the car running on a stale pack.
+    const unsatisfied: number[] = [];
+
     profile.segments.forEach((segment, index) => {
-      const matchingConfigs = allConfigurations.filter(
-        config => config.voltage === segment.requiredVoltage
-      ).sort((a, b) => a.activeCells - b.activeCells);
+      if (segment.requiredVoltage === 0) return;
+
+      // Prefer the configuration that uses the fewest cells to reach the
+      // required voltage, so unused cells stay in reserve.
+      const matchingConfigs = allConfigurations
+        .filter(config => config.voltage === segment.requiredVoltage)
+        .sort((a, b) => a.activeCells - b.activeCells);
 
       if (matchingConfigs.length > 0) {
         configMap.set(index, matchingConfigs[0]);
+      } else if (!unsatisfied.includes(segment.requiredVoltage)) {
+        unsatisfied.push(segment.requiredVoltage);
       }
     });
+
+    if (unsatisfied.length > 0) {
+      toast({
+        title: "Unsupported route voltage",
+        description:
+          `This pack cannot produce ${unsatisfied.map(v => `${v} V`).join(", ")}. ` +
+          `Those segments have no configuration and will be skipped.`,
+        variant: "destructive",
+      });
+    }
 
     setSegmentConfigurations(configMap);
     return configMap;

@@ -36,6 +36,7 @@ import ResearchSummary, {
   CLASS_DISTRIBUTION,
   DOMINANT_RESISTORS,
   APP_ENUMERATION,
+  OPERATIONAL_CONFIGURATIONS,
   REFERENCES,
 } from "@/pages/research-summary";
 
@@ -153,9 +154,23 @@ check("6 V comes only from combined topology", DOMINANT_RESISTORS.find((r) => r.
 // --------------------------------------------- 3. This application's own data
 console.log("\n--- this application's solver enumeration ---");
 const total = APP_ENUMERATION.reduce((a, r) => a + r.n, 0);
-const operational = APP_ENUMERATION.filter((r) => r.v !== "0 V").reduce((a, r) => a + r.n, 0);
+// Operational = power-delivering. Short circuits, 0 V states and the single
+// invalid configuration all deliver nothing usable to the load.
+const NON_OPERATIONAL = ["0 V", "Short circuit", "Invalid"];
+const operational = APP_ENUMERATION.filter((r) => !NON_OPERATIONAL.includes(r.v)).reduce(
+  (a, r) => a + r.n,
+  0,
+);
 check("enumeration totals 4,096 switch settings", total === 4096);
-check("1,573 operational configurations", operational === 1573);
+check("565 operational configurations", operational === 565);
+check("the page constant agrees", OPERATIONAL_CONFIGURATIONS === 565);
+check(
+  "operational split is 437 / 101 / 22 / 5",
+  APP_ENUMERATION.find((r) => r.v === "4 V")?.n === 437 &&
+    APP_ENUMERATION.find((r) => r.v === "8 V")?.n === 101 &&
+    APP_ENUMERATION.find((r) => r.v === "12 V")?.n === 22 &&
+    APP_ENUMERATION.find((r) => r.v === "16 V")?.n === 5,
+);
 
 console.log("\n--- references ---");
 check("37 references", REFERENCES.length === 37);

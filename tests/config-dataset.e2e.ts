@@ -7,7 +7,8 @@
  *
  * Run with:  npm run dataset:verify
  */
-import { analyse, generateAll, toCsv } from "../tools/generate-config-dataset";
+import { analyseConfiguration, generateAll } from "../shared/battery-model";
+import { toCsv } from "../tools/config-dataset-csv";
 
 let failures = 0;
 
@@ -39,20 +40,20 @@ console.log("\nHand-derived circuit cases (topology per project specification):"
 
 // 1. Everything open: no path from the energy source to any cell.
 {
-  const r = analyse(sw(), "t1");
+  const r = analyseConfiguration(sw(), "t1");
   check("all switches open -> 0 V, no output", r.voltage === 0 && r.status === "valid", JSON.stringify(r.voltage));
 }
 
 // 2. Only the last-cell type-c switch closed: ES- reaches N4, but nothing
 //    connects any cell positive pole back to ES+, so the loop stays open.
 {
-  const r = analyse(sw("R4C"), "t2");
+  const r = analyseConfiguration(sw("R4C"), "t2");
   check("R4C alone -> 0 V (open loop)", r.voltage === 0 && r.status === "valid");
 }
 
 // 3. Cell 4 alone across the load: ES+ -R4A- P4 -cell4- N4 -R4C- ES-.
 {
-  const r = analyse(sw("R4A", "R4C"), "t3");
+  const r = analyseConfiguration(sw("R4A", "R4C"), "t3");
   check(
     "R4A+R4C -> 4 V, cell 4 only",
     r.voltage === 4 && r.activeCells.join(",") === "4",
@@ -63,7 +64,7 @@ console.log("\nHand-derived circuit cases (topology per project specification):"
 // 4. Full four-cell series string:
 //    ES+ -R1A- P1 -c1- N1 -R1C- P2 -c2- N2 -R2C- P3 -c3- N3 -R3C- P4 -c4- N4 -R4C- ES-
 {
-  const r = analyse(sw("R1A", "R1C", "R2C", "R3C", "R4C"), "t4");
+  const r = analyseConfiguration(sw("R1A", "R1C", "R2C", "R3C", "R4C"), "t4");
   check(
     "four-cell series string -> 16 V, series, all cells active",
     r.voltage === 16 && r.connectionClass === "series" && r.activeCells.join(",") === "1,2,3,4",
@@ -74,7 +75,7 @@ console.log("\nHand-derived circuit cases (topology per project specification):"
 // 5. Two cells paralleled through the common (type-b) bus: positives tied to
 //    ES+ by R3A/R4A, negatives tied together by R3B/R4B, and N4 to ES- by R4C.
 {
-  const r = analyse(sw("R3A", "R3B", "R4A", "R4B", "R4C"), "t5");
+  const r = analyseConfiguration(sw("R3A", "R3B", "R4A", "R4B", "R4C"), "t5");
   check(
     "cells 3+4 paralleled via the b-bus -> 4 V, parallel",
     r.voltage === 4 && r.connectionClass === "parallel" && r.activeCells.join(",") === "3,4",
@@ -85,7 +86,7 @@ console.log("\nHand-derived circuit cases (topology per project specification):"
 // 6. Shorted cell: R1A and R2A both tie ES+ to P1 and P2, while R1C ties N1 to
 //    P2. N1 therefore reaches P1 and cell 1 is short-circuited.
 {
-  const r = analyse(sw("R1A", "R2A", "R1C"), "t6");
+  const r = analyseConfiguration(sw("R1A", "R2A", "R1C"), "t6");
   check("R1A+R2A+R1C -> short circuit", r.status === "short-circuit", r.status);
 }
 

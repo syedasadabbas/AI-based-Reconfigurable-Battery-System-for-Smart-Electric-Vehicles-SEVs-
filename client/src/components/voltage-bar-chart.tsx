@@ -18,14 +18,13 @@ interface VoltageBarChartProps {
   statistics: Statistics | undefined;
 }
 
+// Only the five achievable voltage groups. The 6 V, 10 V and 14 V entries that
+// used to sit here could never be plotted: see shared/battery-model.ts.
 const VOLTAGE_COLORS: Record<number, string> = {
   0: '#9ca3af',
   4: '#3b82f6',
-  6: '#06b6d4',
   8: '#14b8a6',
-  10: '#10b981',
   12: '#22c55e',
-  14: '#84cc16',
   16: '#f59e0b'
 };
 

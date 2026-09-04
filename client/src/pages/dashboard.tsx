@@ -44,14 +44,16 @@ export default function Dashboard() {
     }
   }, [configurations]);
 
+  // Voltage cards for the five groups this pack can actually produce. The
+  // previous hardcoded list also offered 6 V, 10 V and 14 V cards, which always
+  // rendered a count of zero: those voltages are unreachable, because the
+  // terminal voltage is always a whole number of 4 V cells in series (see
+  // shared/battery-model.ts and tests/config-hand-derivation.e2e.ts).
   const voltageGroups = [
-    { voltage: "0V", label: "Zero Output", count: statistics?.voltageGroups["0"] || 0, badgeClass: "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200", cardClass: "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800" },
-    { voltage: "4V", label: "Single Cell", count: statistics?.voltageGroups["4"] || 0, badgeClass: "bg-blue-200 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200", cardClass: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30" },
-    { voltage: "6V", label: "Mixed Config", count: statistics?.voltageGroups["6"] || 0, badgeClass: "bg-cyan-200 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-200", cardClass: "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100 dark:hover:bg-cyan-900/30" },
-    { voltage: "8V", label: "Two Series", count: statistics?.voltageGroups["8"] || 0, badgeClass: "bg-teal-200 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200", cardClass: "bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/30" },
-    { voltage: "10V", label: "Three Mixed", count: statistics?.voltageGroups["10"] || 0, badgeClass: "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200", cardClass: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/30" },
-    { voltage: "12V", label: "Three Series", count: statistics?.voltageGroups["12"] || 0, badgeClass: "bg-green-200 dark:bg-green-900/60 text-green-800 dark:text-green-200", cardClass: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30" },
-    { voltage: "14V", label: "Four Mixed", count: statistics?.voltageGroups["14"] || 0, badgeClass: "bg-lime-200 dark:bg-lime-900/60 text-lime-800 dark:text-lime-200", cardClass: "bg-lime-50 dark:bg-lime-900/20 border-lime-200 dark:border-lime-800 hover:bg-lime-100 dark:hover:bg-lime-900/30" },
+    { voltage: "0V", label: "No Output / Fault", count: statistics?.voltageGroups["0"] || 0, badgeClass: "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200", cardClass: "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800" },
+    { voltage: "4V", label: "One Cell Deep", count: statistics?.voltageGroups["4"] || 0, badgeClass: "bg-blue-200 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200", cardClass: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30" },
+    { voltage: "8V", label: "Two In Series", count: statistics?.voltageGroups["8"] || 0, badgeClass: "bg-teal-200 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200", cardClass: "bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/30" },
+    { voltage: "12V", label: "Three In Series", count: statistics?.voltageGroups["12"] || 0, badgeClass: "bg-green-200 dark:bg-green-900/60 text-green-800 dark:text-green-200", cardClass: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30" },
     { voltage: "16V", label: "Full Series", count: statistics?.voltageGroups["16"] || 0, badgeClass: "bg-amber-200 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200", cardClass: "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30" },
   ];
 

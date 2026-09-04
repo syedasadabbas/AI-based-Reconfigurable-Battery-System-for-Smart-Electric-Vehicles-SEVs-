@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { circuitSolver } from "./circuit-solver";
+import { calculateConfiguration } from "../shared/battery-model";
 import { switchConfigSchema, exportRequestSchema, aiCellStateSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -32,7 +32,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Calculate voltage from switch configuration
+  // Calculate voltage from switch configuration.
+  //
+  // This used to look the configuration up by its formatted switch string and
+  // then recompute the active-cell set from a second solver, so the response
+  // could mix two models. It now comes from shared/battery-model.ts alone.
   app.post("/api/calculate", async (req, res) => {
     try {
       const result = switchConfigSchema.safeParse(req.body);
@@ -40,36 +44,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid switch configuration", errors: result.error.errors });
       }
 
-      const { switches } = result.data;
-      
-      // Find matching configuration
-      const switchStates = formatSwitchStates(switches);
-      const configurations = await storage.getAllConfigurations();
-      const match = configurations.find(config => config.switchStates === switchStates);
-      
-      if (!match) {
-        return res.status(404).json({ message: "Configuration not found" });
-      }
-
-      // Get active cells set for diagram highlighting
-      const activeCellsSet = circuitSolver.getActiveCellsSet(switches);
-      const activeCellsArray = Array.from(activeCellsSet);
-
-      res.json({
-        voltage: match.voltage,
-        voltageGroup: match.voltageGroup,
-        connectionType: match.connectionType,
-        activeCells: match.activeCells,
-        activeCellsArray,
-        configId: match.configId,
-        switchStates: match.switchStates,
-      });
+      res.json(calculateConfiguration(result.data.switches));
     } catch (error) {
       res.status(500).json({ message: "Failed to calculate voltage" });
     }
   });
 
-  // Get session history
   app.get("/api/sessions/:sessionId", async (req, res) => {
     try {
       const { sessionId } = req.params;
@@ -250,15 +230,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   return httpServer;
-}
-
-function formatSwitchStates(switches: boolean[]): string {
-  const groups = [];
-  for (let i = 0; i < 4; i++) {
-    const cellSwitches = switches.slice(i * 3, (i + 1) * 3);
-    groups.push(cellSwitches.map(s => s ? '1' : '0').join(''));
-  }
-  return groups.join(' ');
 }
 
 function parseSwitchStates(switchStates: string): boolean[] {

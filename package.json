@@ -10,7 +10,12 @@
     "check": "tsc",
     "test:e2e": "tsx --tsconfig tsconfig.e2e.json tests/research-summary.e2e.tsx",
     "dataset:generate": "tsx tools/write-config-dataset.ts",
-    "dataset:verify": "tsx tests/config-dataset.e2e.ts"
+    "dataset:verify": "tsx tests/config-dataset.e2e.ts",
+    "dataset:crosscheck": "tsx tests/config-dataset-independent-check.e2e.ts",
+    "dataset:handcheck": "tsx tests/config-hand-derivation.e2e.ts",
+    "dataset:all": "npm run dataset:verify && npm run dataset:crosscheck && npm run dataset:handcheck && npm run dataset:papercheck && npm run dataset:appcheck",
+    "dataset:appcheck": "tsx --tsconfig tsconfig.e2e.json tests/app-data-integrity.e2e.ts",
+    "dataset:papercheck": "tsx tests/paper-pack-alignment.e2e.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
