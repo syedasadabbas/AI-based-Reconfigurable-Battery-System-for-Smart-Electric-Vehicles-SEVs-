@@ -333,8 +333,11 @@ export enum PackTerrainType {
 // that asked for 6 V are therefore served at 8 V - the nearest achievable
 // voltage that does not under-supply them. Under-supplying by dropping to 4 V
 // would leave those terrains without enough voltage to be driven.
-// TODO(supervisor): confirm 8 V is the intended substitution for the former
-// 6 V terrains, or re-specify those terrains at 4 V.
+//
+// The 6 V -> 8 V substitution is CONFIRMED, not provisional: STRAIGHT_ROAD and
+// the other 4 V terrains stay at 4 V, and only the six formerly-6 V terrains
+// move up to 8 V. Their level ordering is preserved, since no terrain that
+// previously required more than 6 V required less than 8 V.
 export const packTerrainMetadata: Record<PackTerrainType, { description: string; voltage: number }> = {
   [PackTerrainType.STRAIGHT_ROAD]: { description: "Straight Road", voltage: 4 },
   [PackTerrainType.INCLINED_L1]: { description: "Inclined Level 1", voltage: 8 }, // was 6 V (unachievable)

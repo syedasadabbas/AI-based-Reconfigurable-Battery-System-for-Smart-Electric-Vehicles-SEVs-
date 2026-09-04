@@ -128,11 +128,19 @@ Verification of the follow-up:
     data/battery-configurations-all.csv 4096 rows,
     data/battery-configurations-valid.csv 565 rows.
 
+Terrain voltages (confirmed by the user):
+  - The six terrains that originally specified 6 V - INCLINED_L1, CURVY_L2,
+    DECLINED_L2, BUMPY_L1, DE_CU_L2 and IN_CU_L1 - are served at 8 V, the
+    nearest achievable voltage that does not under-supply them. The user
+    confirmed this substitution, so the TODO(supervisor) marker in
+    shared/schema.ts has been removed.
+  - All 25 terrains now require only 4, 8, 12 or 16 V, and every terrain
+    family's Level 1 -> Level 2 -> Level 3 progression remains monotone
+    non-decreasing. Both properties are asserted in
+    tests/app-data-integrity.e2e.ts.
+
 Outstanding:
-  - TODO(supervisor) in shared/schema.ts: the six terrains that specified 6 V
-    are now served at 8 V, the nearest achievable voltage that does not
-    under-supply them. Confirm this substitution or re-specify those terrains
-    at 4 V.
+  - None.
 
 ## 2026-09-04 - feat/config-dataset-export - Authoritative configuration dataset (CSV)
 Change: Added tools/generate-config-dataset.ts, tools/write-config-dataset.ts,

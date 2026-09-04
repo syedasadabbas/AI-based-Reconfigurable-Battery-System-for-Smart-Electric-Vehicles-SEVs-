@@ -17,7 +17,7 @@ import {
   OUTPUT_VOLTAGES,
   ACHIEVABLE_VOLTAGES,
 } from "@shared/battery-model";
-import { terrainMetadata, packTerrainMetadata } from "@shared/schema";
+import { terrainMetadata, packTerrainMetadata, PackTerrainType } from "@shared/schema";
 
 let failures = 0;
 function check(name: string, condition: boolean, detail = "") {
@@ -156,6 +156,54 @@ check(
   "pack terrain voltages are drawn from the producible output set",
   [...packVoltages].every((v) => (OUTPUT_VOLTAGES as readonly number[]).includes(v)),
   `got ${[...packVoltages].sort((a, b) => a - b).join(", ")}`,
+);
+
+// The six terrains that originally specified 6 V are served at 8 V. Assert the
+// substitution held and did not disturb the level ordering: within each terrain
+// family, Level 1 must not demand more than Level 2, nor Level 2 more than
+// Level 3.
+check(
+  "no terrain still asks for 6 V",
+  !Object.values(packTerrainMetadata).some((t: any) => t.voltage === 6),
+);
+// PackTerrainType members are single-letter codes ("A".."Y"), so go through the
+// enum to reach each terrain by its readable member name.
+const voltageOf = (member: keyof typeof PackTerrainType) =>
+  packTerrainMetadata[PackTerrainType[member]]?.voltage;
+
+check(
+  "the six formerly-6 V terrains are served at 8 V",
+  (["INCLINED_L1", "CURVY_L2", "DECLINED_L2", "BUMPY_L1", "DE_CU_L2", "IN_CU_L1"] as const).every(
+    (k) => voltageOf(k) === 8,
+  ),
+  (["INCLINED_L1", "CURVY_L2", "DECLINED_L2", "BUMPY_L1", "DE_CU_L2", "IN_CU_L1"] as const)
+    .map((k) => `${k}=${voltageOf(k)}`)
+    .join(" "),
+);
+
+const families = new Map<string, { level: number; voltage: number }[]>();
+for (const member of Object.keys(PackTerrainType) as (keyof typeof PackTerrainType)[]) {
+  const m = /^(.*)_L([123])$/.exec(member);
+  if (!m) continue;
+  if (!families.has(m[1])) families.set(m[1], []);
+  families.get(m[1])!.push({ level: Number(m[2]), voltage: voltageOf(member)! });
+}
+const nonMonotone: string[] = [];
+for (const [family, levels] of Array.from(families.entries())) {
+  levels.sort((a, b) => a.level - b.level);
+  for (let i = 1; i < levels.length; i++) {
+    if (levels[i].voltage < levels[i - 1].voltage) nonMonotone.push(family);
+  }
+}
+check(
+  "terrain level ordering is monotone in every family",
+  nonMonotone.length === 0,
+  `broken: ${nonMonotone.join(", ")}`,
+);
+check(
+  "all 8 levelled terrain families were checked",
+  families.size === 8,
+  `${families.size}`,
 );
 
 console.log(
