@@ -1,5 +1,60 @@
 # Change Log
 
+## 2026-09-04 - feat/config-dataset-export - Authoritative configuration dataset (CSV)
+Change: Added tools/generate-config-dataset.ts, tools/write-config-dataset.ts,
+  tests/config-dataset.e2e.ts, data/README.md, the generated CSV files
+  data/battery-configurations-all.csv and data/battery-configurations-valid.csv,
+  and npm scripts `dataset:generate` / `dataset:verify`.
+Justification:
+  - Requirement: a shareable data file listing ALL possible switch configurations
+    with voltage and connection class (series / parallel / both).
+  - No such file existed. Two conflicting artefacts were present and neither was
+    usable as-is:
+      1. attached_assets/FormulaValidConfig (2)_1759486139357.xlsx is referenced by
+         NO code in the repository (verified by grep for "attached_assets", "xlsx"
+         and "FormulaValidConfig"; the only @assets import anywhere is a PNG).
+         It has 1605 rows, voltages 4/6/8/12/16 V, and its COMB column is a pure
+         function of VOLTS (4 V -> parallel x386, 6 V -> both x64, rest -> series
+         x1155), so COMB encodes no structural information. Its 6 V rows are
+         unreachable with ideal 4 V cells and ideal 0/inf switches; they imply a
+         resistive cell model that the supplied Kirchhoff equations do not use.
+      2. server/circuit-solver.ts, which the running app uses via MemStorage,
+         produces 1573 non-zero configurations (4 V x454, 8 V x470, 12 V x420,
+         16 V x229), emits no 6 V case and no "both" class, and disagrees with
+         the spreadsheet at every voltage level.
+  - Rather than trust either, the generator was derived from first principles from
+    the topology in the project specification
+    (attached_assets/Pasted-Type-a-switch-connects-...txt): type-a switch ES+ to
+    cell positive pole, type-b switch cell negative pole to the common b-bus,
+    type-c switch cell i negative to cell i+1 positive with the last cell's type-c
+    switch going to ES- instead. Closed switches are contracted with a union-find,
+    node potentials are propagated over the remaining cell edges, and a potential
+    contradiction is reported as a short circuit - which is the ideal-source
+    signature of the infinite loop current the specification says must be excluded.
+Result:
+  - 4096 total configurations: 2380 short-circuit, 1151 zero output,
+    565 voltage-producing (4 V x437, 8 V x101, 12 V x22, 16 V x5;
+    series x461, parallel x91, both x13).
+Verification:
+  - `npm run dataset:verify` passes all 22 assertions, including seven
+    hand-derived circuit cases: all-open -> 0 V; R4C alone -> 0 V (open loop);
+    R4A+R4C -> 4 V on cell 4; the R1A,R1C,R2C,R3C,R4C series string -> 16 V;
+    R3A,R3B,R4A,R4B,R4C -> 4 V parallel on cells 3+4; R1A,R2A,R1C -> short
+    circuit; and exactly 5 configurations reaching 16 V (independently derived:
+    the series string fixes five switches, any further type-a switch shorts a
+    cell, and any two type-b switches tie two cell negatives together and short a
+    cell, leaving "no type-b" plus "exactly one of R1B..R4B" = 1 + 4 = 5).
+  - Invariants asserted over all 4096 rows: voltage == 4 V x cells-in-series,
+    voltage in {4,8,12,16} and <= 16 V, every conducting row closes through R4C,
+    class/active-cell consistency, and uniform CSV column counts.
+  - `npx tsc --noEmit` on the new files: passes.
+Outstanding:
+  - TODO in tools/generate-config-dataset.ts header: server/circuit-solver.ts has
+    NOT been changed to match this dataset. The running app therefore still
+    reports the old figures on /simulation, and the two disagree. Reconciling the
+    solver (or confirming the spreadsheet's resistive model is the intended one
+    with the supervisor) is a separate decision and was left to the user.
+
 ## 2026-09-04 - fix/tailwind-config - Add missing tailwind.config.ts
 Change: Added tailwind.config.ts at the repository root.
 Justification:

@@ -8,7 +8,9 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "test:e2e": "tsx --tsconfig tsconfig.e2e.json tests/research-summary.e2e.tsx"
+    "test:e2e": "tsx --tsconfig tsconfig.e2e.json tests/research-summary.e2e.tsx",
+    "dataset:generate": "tsx tools/write-config-dataset.ts",
+    "dataset:verify": "tsx tests/config-dataset.e2e.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
