@@ -1,3 +1,7 @@
+// TODO: No end-to-end test suite exists in this repo. The theme tokens below
+// are verified only by a successful build plus a grep of the emitted CSS.
+// Add a Playwright smoke test asserting computed border/background colours.
+
 import type { Config } from "tailwindcss";
 
 // Theme tokens are defined in client/src/index.css as complete `hsl(...)`

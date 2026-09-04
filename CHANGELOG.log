@@ -1,0 +1,34 @@
+# Change Log
+
+## 2026-09-04 - fix/tailwind-config - Add missing tailwind.config.ts
+Change: Added tailwind.config.ts at the repository root.
+Justification:
+  - The Vercel build failed with:
+    [vite:css] [postcss] client/src/index.css:1:1: The `border-border` class
+    does not exist.
+  - Root cause: the repository had no Tailwind config file at all (postcss.config.js
+    loads the `tailwindcss` v3 plugin, but with no config Tailwind used its default
+    theme and scanned no content). `@apply border-border` in index.css therefore
+    referenced an undefined utility, and every other token-based utility
+    (bg-background, text-foreground, font-sans, sidebar/chart colours) was silently
+    missing.
+Details:
+  - darkMode: ["class"] to match the `.dark` selector used in index.css.
+  - content globs cover client/index.html and client/src/**/*.{js,jsx,ts,tsx}.
+  - Colour tokens map to `var(--token)` WITHOUT an hsl() wrapper, because
+    index.css already defines each token as a complete `hsl(...)` value.
+    Consequence: Tailwind alpha modifiers (e.g. bg-primary/50) will not work on
+    these tokens. Converting the tokens to bare channel triples is the follow-up
+    if opacity modifiers are needed.
+  - borderRadius derived from --radius; fontFamily from --font-sans/serif/mono.
+  - Accordion keyframes/animations added for the Radix accordion component.
+  - Plugins: tailwindcss-animate and @tailwindcss/typography (both already in
+    package.json devDependencies/dependencies).
+Verification:
+  - `npx vite build` succeeds (2553 modules, dist/public/assets/index-*.css 102.31 kB).
+  - Emitted CSS confirmed to contain `border-color:var(--border)` and
+    `.bg-background{background-color:var(--background)}`.
+  - `npx esbuild server/index.ts ...` (second half of `npm run build`) succeeds.
+  - NOT verified: no automated end-to-end test suite exists in this repository,
+    so rendered-page behaviour was not asserted programmatically. See the TODO in
+    tailwind.config.ts.
